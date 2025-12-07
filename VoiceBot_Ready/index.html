@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Поиск в Интернете</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col items-center p-4">
+
+    <h1 class="text-3xl font-bold font-sans text-yellow-400 mb-6">🌎 Поиск в Интернете (Голосом)</h1>
+    <p class="text-gray-400 mb-8 text-sm">Система ищет в интернете **каждый** ваш законченный вопрос.</p>
+
+    <button id="start-btn" onclick="startListening()" 
+        class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg transition transform active:scale-95">
+        🎙️ ВКЛЮЧИТЬ МИКРОФОН
+    </button>
+
+    <div id="status" class="mt-8 text-gray-500">Нажми кнопку и разреши микрофон</div>
+    
+    <div class="mt-4 text-center">
+        <p class="text-xs text-gray-600 uppercase">Последний запрос:</p>
+        <p id="last-question" class="text-xl font-bold text-yellow-300">...</p>
+    </div>
+
+    <script>
+        // *** ЗАМЕНИТЕ ЭТУ ССЫЛКУ НА ВАШ ПОСТОЯННЫЙ АДРЕС ОТ RENDER! ***
+        const SERVER_URL = 'https://[ВАШ-АДРЕС-ОТ-RENDER].onrender.com/ask_ai';
+        // ***************************************************************
+        
+        let recognition;
+
+        function startListening() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Нужен Google Chrome!");
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ru-RU';
+            recognition.continuous = true;
+            recognition.interimResults = false;
+
+            // Визуальное обновление статуса
+            document.getElementById('start-btn').classList.add('bg-red-600', 'animate-pulse');
+            document.getElementById('start-btn').innerText = "👂 СЛУШАЮ...";
+            document.getElementById('status').innerText = "Говорите вопрос для поиска...";
+
+            recognition.onresult = (event) => {
+                const last = event.results.length - 1;
+                const text = event.results[last][0].transcript.trim();
+                
+                if (event.results[last].isFinal) {
+                    
+                    if (text.length > 0) {
+                        document.getElementById('last-question').innerText = text;
+                        sendToServer(text);
+                    }
+                }
+            };
+            
+            recognition.onend = () => recognition.start(); // Перезапуск при остановке
+            recognition.start();
+        }
+
+        async function sendToServer(question) {
+            document.getElementById('status').innerText = "⏳ Ищу в интернете...";
+            
+            try {
+                // Отправляем ТОЛЬКО вопрос
+                const response = await fetch(SERVER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: question })
+                });
+
+                if (response.ok) {
+                    document.getElementById('status').innerText = "✅ Ответ отправлен в Telegram!";
+                } else {
+                    document.getElementById('status').innerText = "❌ Ошибка сервера/API! (Код: " + response.status + ")";
+                }
+            } catch (e) {
+                document.getElementById('status').innerText = "❌ Сервер недоступен (проверь Render)!";
+                console.error(e);
+            }
+            
+            // Сброс статуса через 2 секунды
+            setTimeout(() => {
+                document.getElementById('status').innerText = "👂 СЛУШАЮ...";
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
