@@ -23,22 +23,24 @@
     </div>
 
     <script>
-        // *** ЗАМЕНИТЕ ЭТУ ССЫЛКУ НА ВАШ ПОСТОЯННЫЙ АДРЕС ОТ RENDER! ***
-        const SERVER_URL = 'https://[ВАШ-АДРЕС-ОТ-RENDER].onrender.com/ask_ai';
-        // ***************************************************************
+        // *** ВАША ПОСТОЯННАЯ ССЫЛКА С RENDER ***
+        // Мы используем /ask_ai, так как это конечная точка, которая принимает запросы POST на сервере.
+        const SERVER_URL = 'https://telegram-voice-ai.onrender.com/ask_ai'; 
+        // ****************************************
         
         let recognition;
 
         function startListening() {
+            // Проверяем поддержку API распознавания речи (работает в Chrome/Яндекс)
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
-                alert("Нужен Google Chrome!");
+                alert("Нужен браузер с поддержкой SpeechRecognition API (например, Google Chrome или Яндекс.Браузер)!");
                 return;
             }
 
             recognition = new SpeechRecognition();
-            recognition.lang = 'ru-RU';
-            recognition.continuous = true;
+            recognition.lang = 'ru-RU'; // Русский язык
+            recognition.continuous = true; // Непрерывное слушание (хотя мы обрабатываем только финальный результат)
             recognition.interimResults = false;
 
             // Визуальное обновление статуса
@@ -59,15 +61,23 @@
                 }
             };
             
-            recognition.onend = () => recognition.start(); // Перезапуск при остановке
-            recognition.start();
+            // Если распознавание останавливается, мы запускаем его снова (для непрерывной работы)
+            recognition.onend = () => recognition.start(); 
+            
+            try {
+                recognition.start();
+            } catch (e) {
+                // Если микрофон уже используется или нет разрешения
+                document.getElementById('status').innerText = "❌ Ошибка: Проверьте разрешение микрофона!";
+                console.error("Recognition Start Error:", e);
+            }
         }
 
         async function sendToServer(question) {
             document.getElementById('status').innerText = "⏳ Ищу в интернете...";
             
             try {
-                // Отправляем ТОЛЬКО вопрос
+                // Отправляем ТОЛЬКО вопрос на наш сервер Render
                 const response = await fetch(SERVER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -77,11 +87,13 @@
                 if (response.ok) {
                     document.getElementById('status').innerText = "✅ Ответ отправлен в Telegram!";
                 } else {
+                    // Обработка ошибок сервера (например, если Gemini не отвечает)
                     document.getElementById('status').innerText = "❌ Ошибка сервера/API! (Код: " + response.status + ")";
                 }
             } catch (e) {
-                document.getElementById('status').innerText = "❌ Сервер недоступен (проверь Render)!";
-                console.error(e);
+                // Обработка ошибок сети (сервер Render недоступен)
+                document.getElementById('status').innerText = "❌ Сервер недоступен (Проверьте подключение или адрес!)";
+                console.error("Network Error:", e);
             }
             
             // Сброс статуса через 2 секунды
